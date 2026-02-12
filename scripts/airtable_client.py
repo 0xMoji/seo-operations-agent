@@ -218,9 +218,9 @@ class AirtableClient:
                         "type": "singleSelect",
                         "options": {
                             "choices": [
-                                {"name": "未开始"},
-                                {"name": "已使用"},
-                                {"name": "失效"}
+                                {"name": "Available"},
+                                {"name": "Used"},
+                                {"name": "Deprecated"}
                             ]
                         }
                     }
@@ -228,26 +228,40 @@ class AirtableClient:
             },
             {
                 "name": "Content_Hub",
-                "description": "Generated content library with publishing workflow",
+                "description": "Generated content library with multi-platform publishing workflow",
                 "fields": [
                     {"name": "Title", "type": "singleLineText"},
                     {"name": "Body", "type": "multilineText"},
                     {"name": "SEO Metadata", "type": "multilineText"},
                     {"name": "Social Snippet", "type": "multilineText"},
-                    {"name": "Cover Image", "type": "multipleAttachments"},
+                    {"name": "Images", "type": "multipleAttachments"},
+                    {"name": "Image Metadata", "type": "multilineText"},
                     {
                         "name": "Status",
                         "type": "singleSelect",
                         "options": {
                             "choices": [
-                                {"name": "待审核"},
-                                {"name": "已批准"},
-                                {"name": "发布中"},
-                                {"name": "已发布"},
-                                {"name": "发布失败"}
+                                {"name": "Pending"},
+                                {"name": "Approved"},
+                                {"name": "Publishing"},
+                                {"name": "Published"},
+                                {"name": "Failed"}
                             ]
                         }
                     },
+                    {
+                        "name": "Platform",
+                        "type": "multipleSelects",
+                        "options": {
+                            "choices": [
+                                {"name": "X (Twitter)"},
+                                {"name": "LinkedIn"},
+                                {"name": "Website"}
+                            ]
+                        }
+                    },
+                    {"name": "Scheduled Time", "type": "dateTime"},
+                    {"name": "Next to Publish", "type": "checkbox"},
                     {"name": "Live URL", "type": "url"},
                     {"name": "Published At", "type": "dateTime"},
                     {"name": "Error Message", "type": "multilineText"}
@@ -321,7 +335,7 @@ class AirtableClient:
             {
                 "fields": {
                     "Keyword": kw,
-                    "Status": "未开始",
+                    "Status": "Available",
                     "Category": "General"
                 }
             }
@@ -344,7 +358,7 @@ class AirtableClient:
         """Get one unused keyword from pool"""
         url = f"{self.base_url}/{self.tables['keywords']}"
         params = {
-            "filterByFormula": "{Status} = '未开始'",
+            "filterByFormula": "{Status} = 'Available'",
             "maxRecords": 1
         }
         
@@ -357,8 +371,17 @@ class AirtableClient:
         return None
     
     def create_content(self, content: Dict[str, Any]) -> str:
-        """Create content record"""
+        """Create content record with support for multiple images"""
         url = f"{self.base_url}/{self.tables['content']}"
+        
+        # Prepare image attachments
+        images = []
+        if content.get("images"):
+            for img in content["images"]:
+                if isinstance(img, dict) and "url" in img:
+                    images.append({"url": img["url"]})
+                elif isinstance(img, str):
+                    images.append({"url": img})
         
         payload = {
             "fields": {
@@ -366,8 +389,11 @@ class AirtableClient:
                 "Body": content["body"],
                 "SEO Metadata": content.get("seo_metadata", {}),
                 "Social Snippet": content.get("social_snippet", ""),
-                "Cover Image": [{"url": content.get("cover_image")}] if content.get("cover_image") else [],
-                "Status": content.get("status", "待审核")
+                "Images": images,
+                "Image Metadata": content.get("image_metadata", "[]"),
+                "Status": content.get("status", "Pending"),
+                "Platform": content.get("platforms", []),
+                "Scheduled Time": content.get("scheduled_time", "")
             }
         }
         
@@ -396,8 +422,8 @@ class AirtableClient:
         """Count pending/approved content for a specific channel"""
         # Simplified: count all pending + approved
         # In production, would filter by channel
-        pending = self.count_records("待审核")
-        approved = self.count_records("已批准")
+        pending = self.count_records("Pending")
+        approved = self.count_records("Approved")
         return pending + approved
     
     def get_campaign_stats(self, campaign_id: str) -> Dict[str, int]:
@@ -406,11 +432,11 @@ class AirtableClient:
             "total_keywords": self._count_table_records(self.tables['keywords']),
             "used_keywords": self._count_by_formula(
                 self.tables['keywords'],
-                "{Status} = '已使用'"
+                "{Status} = 'Used'"
             ),
-            "pending_articles": self.count_records("待审核"),
-            "approved_articles": self.count_records("已批准"),
-            "published_articles": self.count_records("已发布"),
+            "pending_articles": self.count_records("Pending"),
+            "approved_articles": self.count_records("Approved"),
+            "published_articles": self.count_records("Published"),
             "today_published": self._count_published_today()
         }
     
@@ -456,5 +482,5 @@ class AirtableClient:
     def _count_published_today(self) -> int:
         """Count articles published today"""
         today = date.today().isoformat()
-        formula = f"AND({{Status}} = '已发布', IS_SAME({{Published At}}, '{today}', 'day'))"
+        formula = f"AND({{Status}} = 'Published', IS_SAME({{Published At}}, '{today}', 'day'))"
         return self._count_by_formula(self.tables['content'], formula)

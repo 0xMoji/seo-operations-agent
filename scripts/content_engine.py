@@ -7,8 +7,17 @@ including article generation, SEO optimization, and multi-format output.
 
 import os
 import json
-from typing import Dict, Any, Optional
+import re
+from typing import Dict, Any, Optional, List
 import requests
+
+
+# Platform-specific character limits
+PLATFORM_LIMITS = {
+    "X (Twitter)": 280,
+    "LinkedIn": 3000,
+    "Website": None  # No limit
+}
 
 
 class ContentEngine:
@@ -19,22 +28,35 @@ class ContentEngine:
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.openai_url = "https://api.openai.com/v1/chat/completions"
         
+        # Initialize ImageManager
+        from image_manager import ImageManager
+        self.image_manager = ImageManager()
+        
         self.headers = {
             "Authorization": f"Bearer {self.openai_api_key}",
             "Content-Type": "application/json"
         }
     
-    def generate(self, campaign: Dict[str, Any], channel: str = "website") -> Optional[Dict[str, Any]]:
+    def generate(
+        self, 
+        campaign: Dict[str, Any], 
+        platforms: Optional[List[str]] = None,
+        num_images: int = 1
+    ) -> Optional[Dict[str, Any]]:
         """
-        Generate complete article with SEO metadata and social snippet
+        Generate complete article with SEO metadata, social snippet, and images
         
         Args:
             campaign: Campaign configuration
-            channel: Target channel (website/twitter/linkedin)
+            platforms: Target platforms (defaults to ["Website"])
+            num_images: Number of images to generate (default: 1)
             
         Returns:
             Article data dict or None if generation fails
         """
+        if platforms is None:
+            platforms = ["Website"]
+        
         # Get unused keyword
         keyword = self.airtable.get_unused_keyword()
         if not keyword:
@@ -46,23 +68,33 @@ class ContentEngine:
         try:
             content_data = self._call_openai(prompt)
             
-            # Get cover image if Unsplash is configured
-            cover_image = self._get_cover_image(keyword)
+            # Generate images for all platforms
+            images = self.image_manager.generate_images_for_content(
+                keyword=keyword,
+                title=content_data["title"],
+                platforms=platforms,
+                num_images=num_images
+            )
             
-            # Mark keyword as used
-            # (Would need record ID in production)
+            # Convert images to format expected by Airtable
+            image_urls = [img.url for img in images if img.url]
+            image_metadata = json.dumps([img.to_dict() for img in images])
+            
+            # Mark keyword as used (would need record ID in production)
             
             return {
                 "title": content_data["title"],
                 "body": content_data["html_body"],
-                "seo_metadata": {
+                "seo_metadata": json.dumps({
                     "slug": content_data["slug"],
                     "description": content_data["meta_description"],
                     "schema_markup": self._generate_schema_markup(content_data)
-                },
+                }),
                 "social_snippet": content_data["social_snippet"],
-                "cover_image": cover_image,
-                "status": "已批准" if campaign.get("auto_approve") else "待审核"
+                "images": image_urls,
+                "image_metadata": image_metadata,
+                "platforms": platforms,
+                "status": "Approved" if campaign.get("auto_approve") else "Pending"
             }
         except Exception as e:
             print(f"Content generation error: {e}")
@@ -176,3 +208,176 @@ class ContentEngine:
             "datePublished": "",  # Will be filled at publish time
             "keywords": content_data.get("meta_keywords", "")
         }
+    
+    def generate_for_platforms(
+        self, 
+        campaign: Dict[str, Any], 
+        platforms: List[str]
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Generate platform-specific content for multiple channels.
+        
+        Args:
+            campaign: Campaign configuration
+            platforms: List of platforms (e.g., ["X (Twitter)", "LinkedIn", "Website"])
+            
+        Returns:
+            Dict mapping platform to content data
+        """
+        # Get unused keyword
+        keyword = self.airtable.get_unused_keyword()
+        if not keyword:
+            return {}
+        
+        results = {}
+        
+        for platform in platforms:
+            try:
+                if platform == "X (Twitter)":
+                    content = self._generate_twitter_content(keyword, campaign)
+                elif platform == "LinkedIn":
+                    content = self._generate_linkedin_content(keyword, campaign)
+                elif platform == "Website":
+                    content = self.generate(campaign, "website")
+                else:
+                    continue
+                
+                if content:
+                    results[platform] = content
+                    
+            except Exception as e:
+                print(f"Failed to generate content for {platform}: {e}")
+        
+        return results
+    
+    def _generate_twitter_content(
+        self, 
+        keyword: str, 
+        campaign: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate Twitter-optimized content (max 280 chars)"""
+        prompt = f"""
+Create a Twitter post about: {keyword}
+Topic context: {campaign['plan_name']}
+
+Requirements:
+- Maximum 280 characters (strict limit)
+- Engaging and conversational tone
+- Include 1-2 relevant emojis
+- Add 2-3 hashtags at the end
+- Call-to-action or thought-provoking question
+
+Return JSON:
+{{
+  "text": "Tweet content",
+  "title": "Short title for tracking"
+}}
+"""
+        
+        content_data = self._call_openai(prompt)
+        
+        # Enforce 280 character limit
+        text = self._enforce_platform_limit(content_data["text"], "X (Twitter)")
+        
+        return {
+            "title": content_data.get("title", f"Twitter: {keyword}"),
+            "body": text,
+            "platform": "X (Twitter)",
+            "status": "Approved" if campaign.get("auto_approve") else "Pending"
+        }
+    
+    def _generate_linkedin_content(
+        self, 
+        keyword: str, 
+        campaign: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate LinkedIn-optimized content (max 3000 chars)"""
+        prompt = f"""
+Create a LinkedIn post about: {keyword}
+Topic context: {campaign['plan_name']}
+
+Requirements:
+- Maximum 3000 characters
+- Professional yet engaging tone
+- Include industry insights or data
+- Use line breaks for readability
+- End with a thoughtful question
+- 3-5 relevant hashtags
+
+Return JSON:
+{{
+  "text": "LinkedIn post content",
+  "title": "Headline for tracking"
+}}
+"""
+        
+        content_data = self._call_openai(prompt)
+        
+        # Enforce 3000 character limit
+        text = self._enforce_platform_limit(content_data["text"], "LinkedIn")
+        
+        return {
+            "title": content_data.get("title", f"LinkedIn: {keyword}"),
+            "body": text,
+            "platform": "LinkedIn",
+            "status": "Approved" if campaign.get("auto_approve") else "Pending"
+        }
+    
+    def _enforce_platform_limit(self, content: str, platform: str) -> str:
+        """
+        Ensure content fits within platform character limits.
+        
+        Args:
+            content: Original content text
+            platform: Target platform name
+            
+        Returns:
+            Truncated content if necessary
+        """
+        limit = PLATFORM_LIMITS.get(platform)
+        
+        if limit is None or len(content) <= limit:
+            return content
+        
+        # Smart truncation: preserve hashtags and emojis when possible
+        return self._truncate_smartly(content, limit)
+    
+    def _truncate_smartly(self, text: str, limit: int) -> str:
+        """
+        Intelligently truncate text while preserving hashtags.
+        
+        Strategy:
+        1. Extract hashtags from end
+        2. Truncate main content
+        3. Re-append hashtags if space allows
+        4. Add ellipsis
+        """
+        # Extract hashtags (assuming they're at the end)
+        hashtag_pattern = r'((?:#\w+\s*)+)$'
+        hashtag_match = re.search(hashtag_pattern, text)
+        
+        if hashtag_match:
+            hashtags = hashtag_match.group(1).strip()
+            main_text = text[:hashtag_match.start()].strip()
+        else:
+            hashtags = ""
+            main_text = text
+        
+        # Calculate available space
+        hashtag_space = len(hashtags) + 1 if hashtags else 0  # +1 for space
+        ellipsis = "..."
+        available = limit - hashtag_space - len(ellipsis)
+        
+        if available <= 0:
+            # Can't fit hashtags, just truncate all
+            return text[:limit-len(ellipsis)] + ellipsis
+        
+        # Truncate at word boundary
+        truncated = main_text[:available].rsplit(' ', 1)[0]
+        
+        # Reassemble
+        result = truncated + ellipsis
+        if hashtags and (len(result) + hashtag_space) <= limit:
+            result += " " + hashtags
+        
+        return result

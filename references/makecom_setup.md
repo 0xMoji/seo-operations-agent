@@ -1,253 +1,300 @@
-# Make.com Scenario Setup Guide
+# Make.com Integration Setup
 
-This guide will walk you through creating the Make.com automation scenario for multi-platform content distribution.
+Complete guide for setting up automated multi-platform content distribution via Make.com and Buffer.
 
-## Prerequisites
+---
 
-- Make.com account (free tier sufficient)
-- Your Airtable Base ID and API key
-- Buffer account (if using social media distribution)
+## Overview
 
-## Step 1: Create New Scenario
+Make.com acts as the **distribution pipe** in the Brain-Hub-Pipe architecture:
+- **Webhook trigger** from OpenClaw when content is ready
+- **Airtable query** for approved content marked "Next to Publish"
+- **Platform routing** based on Platform field (X Twitter, LinkedIn)  
+- **Buffer publishing** to social media channels
+- **Status updates** back to Airtable
+
+> [!NOTE]
+> The "Website" platform is handled directly by OpenClaw via your website API, not through Make.com.
+
+---
+
+## Quick Start: Import Blueprint
+
+### Option 1: Use Pre-built Blueprint (Recommended)
+
+1. **Download Blueprint**  
+   File: `references/makecom_blueprint.json`
+
+2. **Import to Make.com**
+   - Log in to [Make.com](https://www.make.com)
+   - Create new scenario
+   - Click "..." menu → "Import Blueprint"
+   - Upload `makecom_blueprint.json`
+
+3. **Replace Placeholders**
+   
+   The blueprint contains these placeholders you must replace:
+
+   | Placeholder | How to Find It |
+   |-------------|----------------|
+   | `{{YOUR_WEBHOOK_ID}}` | Created automatically on import, copy webhook URL |
+   | `{{YOUR_AIRTABLE_CONNECTION_ID}}` | Click "Add" → Connect Airtable account |
+   | `{{YOUR_BASE_ID}}` | From Airtable URL: `airtable.com/appXXXXXXXXXX` |
+   | `{{YOUR_CONTENT_HUB_TABLE_ID}}` | Select "Content_Hub" table in Airtable module |
+   | `{{YOUR_BUFFER_CONNECTION_ID}}` | Click "Add" → Connect Buffer account |
+   | `{{YOUR_TWITTER_PROFILE_ID}}` | Select your X/Twitter profile in Buffer module |
+   | `{{YOUR_LINKEDIN_PROFILE_ID}}` | Select your LinkedIn profile in Buffer module |
+
+4. **Test & Activate**
+   - Click "Run once" to test
+   - Check Airtable and Buffer for results
+   - Click "ON" to activate
+
+5. **Configure OpenClaw**
+   - Copy the webhook URL from step 3
+   - Add to `.env`: `MAKECOM_WEBHOOK_URL=https://hook.us2.make.com/xxxxx`
+
+### Option 2: Manual Setup
+
+Follow the detailed steps below if you prefer to build from scratch.
+
+---
+
+## Manual Setup Instructions
+
+### Step 1: Create New Scenario
 
 1. Log in to [Make.com](https://www.make.com)
 2. Click **"Create a new scenario"**
-3. Name it: **"SEO Agent - Content Distribution"**
+3. Name it: **"SEO Content Distribution"**
 
-## Step 2: Add Webhook Trigger
+### Step 2: Add Webhook Trigger
 
 1. Click **"+"** to add a module
 2. Search for **"Webhooks"**
 3. Select **"Custom webhook"**
 4. Click **"Create a new webhook"**
-5. Name it: **"SEO Content Trigger"**
-6. **Copy the webhook URL** - you'll need this for your `.env` file
+5. Name it: **"OpenClaw SEO Trigger"**
+6. **Copy the webhook URL** - you'll need this for OpenClaw
 
-**Expected Payload**:
+**Expected Payload** (optional):
 ```json
 {
   "action": "publish",
-  "timestamp": "2026-02-10T21:00:00Z"
+  "timestamp": "2026-02-12T21:00:00Z"
 }
 ```
 
-## Step 3: Search Approved Content
+### Step 3: Search Approved Content
 
-1. Add module: **Airtable → Search Records**
-2. Configure:
-   - **Connection**: Add your Airtable connection
-     - API Key: From `.env` file
-   - **Base**: Select your SEO base
-   - **Table**: `Content_Hub`
-   - **Formula**: `{Status} = "已批准"`
-   - **Max records**: `50`
+**Module**: Airtable → Search Records
 
-## Step 4: Add Iterator
+**Configuration**:
+- **Connection**:  Add your Airtable connection (API Key method)
+- **Base**: Select "SEO Content Hub"
+- **Table**: `Content_Hub`
+- **Formula**: `AND({Status}="Approved", {Next to Publish})`
+- **Max records**: `10`
+- **Fields to output**:
+  - Title
+  - Body
+  - Status
+  - Platform
+  - Scheduled Time
+  - Next to Publish
 
-1. Add module: **Flow Control → Iterator**
-2. **Array**: Map to `{{1.records}}`
+**What this does**: Fetches all approved content marked for immediate publishing.
 
-This will process each approved article individually.
+### Step 4: Add Router
 
-## Step 5: Router for Multi-Platform Distribution
+**Module**: Flow Control → Router
 
-1. Add module: **Flow Control → Router**
+Create 2 routes based on Platform field:
 
-### Route 1: Custom Website Publishing
+#### Route 1: X (Twitter)
 
-**Filter**: `{{2.website_webhook_url}}` exists
-
-**Module**: HTTP → Make a Request
-- **URL**: `{{2.website_webhook_url}}`
-- **Method**: POST
-- **Body type**: Raw
-- **Content type**: JSON
-- **Request content**:
-  ```json
-  {
-    "title": "{{2.Title}}",
-    "body": "{{2.Body}}",
-    "slug": "{{2.SEO Metadata.slug}}",
-    "meta_description": "{{2.SEO Metadata.description}}",
-    "featured_image": "{{first(2.Cover Image).url}}",
-    "published_at": "{{now}}"
-  }
-  ```
-
-**Headers** (if API key required):
+**Filter Condition**:
 ```
-Authorization: Bearer YOUR_WEBSITE_API_TOKEN
+{{Platform}} contains "X (Twitter)"
 ```
 
-**Save response** to variable `websiteResponse`
+**Actions**:
+1. **Buffer → Create Status**
+   - Profile: Select Twitter/X profile
+   - Text: `{{Body}}`
+   - Publication: "Post immediately"
+   - Shorten links: Yes
 
-### Route 2: Buffer Social Media
+2. **Airtable → Update Record**
+   - Record ID: `{{id}}`
+   - Fields to update:
+     - `Status` = "Published"
+     - `Next to Publish` = unchecked
+     - `Published At` = `{{now}}`
 
-**Filter**: `{{2.Buffer Channels}}` is not empty
+Don't worry if you have duplicate "Airtable update" modules in multiple routes - Make.com ignores upserts.
 
-**Iterator**: Loop through `{{2.Buffer Channels}}`
+#### Route 2: LinkedIn
 
-**Module**: Buffer → Create Post
-- **Profile**: Map channel to Buffer profile ID
-  - twitter → your Twitter profile ID
-  - linkedin → your LinkedIn profile ID
-- **Text**: `{{2.Social Snippet}}`
-- **Media**: `{{first(2.Cover Image).url}}`
+**Filter Condition**:
+```
+{{Platform}} contains "LinkedIn"
+```
 
-## Step 6: Update Airtable Status
+**Actions**:
+1. **Buffer → Create Status**
+   - Profile: Select LinkedIn profile
+   - Text: `{{Body}}`
+   - Publication: "Post immediately"
+   - Shorten links: Yes
 
-After the router, add:
+2. **Airtable → Update Record**
+   - Record ID: `{{id}}`
+   - Fields to update:
+     - `Status` = "Published"
+     - `Next to Publish` = unchecked
+     - `Published At` = `{{now}}`
 
-**Module**: Airtable → Update Record
-- **Record ID**: `{{2.id}}`
-- **Fields**:
-  - `Status`: `已发布`
-  - `Live URL`: `{{websiteResponse.data.url}}`
-  - `Published At`: `{{now}}`
+> [!WARNING]
+> Do NOT create a "Website" route. OpenClaw publishes directly to your website API.
 
-## Step 7: Error Handling
+---
 
-Add error handler to Route 1:
+## Platform Routing Logic
 
-1. Right-click on HTTP module → **"Add error handler"**
+| Platform Field | Distribution Method |
+|----------------|---------------------|
+| `X (Twitter)` | Make.com → Buffer → Twitter |
+| `LinkedIn` | Make.com → Buffer → LinkedIn |
+| `Website` | OpenClaw → Your Website API (direct) |
+
+**Example**: If Platform = ["X (Twitter)", "Website"]:
+1. Make.com publishes to Twitter via Buffer
+2. OpenClaw publishes to your website API
+3. Both update Airtable independently
+
+---
+
+## Airtable Filter Formula
+
+The scenario uses this formula to find publishable content:
+
+```
+AND({Status}="Approved", {Next to Publish})
+```
+
+**Breakdown**:
+- `{Status}="Approved"` - Content has been reviewed
+- `{Next to Publish}` - Checkbox marking content for immediate publishing
+
+**How it works**:
+1. OpenClaw generates content and saves to Airtable
+2. When publishing time arrives, OpenClaw sets `Next to Publish = true`
+3. OpenClaw triggers Make.com webhook
+4. Make.com publishes and unsets the flag
+
+---
+
+## Testing Your Setup
+
+### Test 1: Manual Airtable Trigger
+
+1. In Airtable, create a test record in `Content_Hub`:
+   - Title: "Test Post"
+   - Body: "This is a test #testing"
+   - Status: "Approved"
+   - Platform: ["X (Twitter)"]
+   - Next to Publish: ✓ (checked)
+
+2. In Make.com, click "Run once"
+
+3. Verify:
+   - ✅ Twitter post appears on your profile
+   - ✅ Airtable record Status → "Published"
+   - ✅ Next to Publish → unchecked
+
+### Test 2: Webhook Trigger
+
+1. Copy your webhook URL from Make.com
+2. Send test POST request:
+   ```bash
+   curl -X POST https://hook.us2.make.com/xxxxxxxxxxxxx
+   ```
+3. Check execution in Make.com scenario history
+
+### Test 3: Linke dIn Route
+
+1. Update test record: Platform = ["LinkedIn"]
+2. Check "Next to Publish" again
+3. Run scenario
+4. Verify LinkedIn post
+
+---
+
+## Error Handling
+
+Add error handling to Buffer modules:
+
+1. Right-click on Buffer module → **"Add error handler"**
 2. Select **"Airtable → Update Record"**
 3. Configure:
-   - **Record ID**: `{{2.id}}`
-   - **Fields**:
-     - `Status`: `发布失败`
-     - `Error Message`: `{{error.message}}`
+   - Record ID: `{{id}}`
+   - Fields:
+     - `Status` = "Failed"
+     - `Error Message` = `{{error.message}}`
 
-## Step 8: Test the Scenario
+---
 
-1. Click **"Run once"**
-2. From OpenClaw, run: `trigger_publish`
-3. Check Make.com execution log
-4. Verify content appears on your website and social media
+## Common Issues
 
-## Step 9: Activate Scenario
+### "No records found"
 
-1. Toggle **"Scheduling"** to ON
-2. Set to **"Immediately as data arrives"**
-3. Click **"OK"**
+**Cause**: Filter formula doesn't match any records
 
-Your scenario is now live!
+**Fix**:
+- Check Status = exactly "Approved" (case-sensitive)
+- Check Next to Publish is checked (true)
+- View Airtable to confirm matching records exist
 
-## Configuration Summary
+### "Buffer authentication failed"
 
-**Environment Variables to Set**:
-```bash
-MAKECOM_WEBHOOK_URL=https://hook.eu1.make.com/YOUR_WEBHOOK_ID
-```
+**Cause**: Buffer connection expired
 
-## Scenario Template (JSON)
+**Fix**:
+- Reconnect Buffer in Make.com
+- Re-authorize all profiles
 
-For quick setup, import this template:
+### "Content truncated on Twitter"
 
-<details>
-<summary>Click to expand template JSON</summary>
+**Cause**: Body exceeds 280 characters
 
-```json
-{
-  "name": "SEO Agent - Content Distribution",
-  "flow": [
-    {
-      "id": 1,
-      "module": "gateway:CustomWebHook",
-      "parameters": {
-        "hook": "seo_content_trigger"
-      }
-    },
-    {
-      "id": 2,
-      "module": "airtable:searchRecords",
-      "parameters": {
-        "base": "{{YOUR_BASE_ID}}",
-        "table": "Content_Hub",
-        "formula": "{Status} = \"已批准\"",
-        "maxRecords": 50
-      }
-    },
-    {
-      "id": 3,
-      "module": "builtin:Iterator",
-      "parameters": {
-        "array": "{{2.records}}"
-      }
-    },
-    {
-      "id": 4,
-      "module": "builtin:Router",
-      "routes": [
-        {
-          "flow": [
-            {
-              "id": 5,
-              "module": "http:makeRequest",
-              "filter": {
-                "name": "Has website webhook",
-                "conditions": [
-                  {
-                    "a": "{{3.website_webhook_url}}",
-                    "o": "exists"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "flow": [
-            {
-              "id": 6,
-              "module": "buffer:createPost"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "module": "airtable:updateRecord",
-      "parameters": {
-        "base": "{{YOUR_BASE_ID}}",
-        "table": "Content_Hub",
-        "recordId": "{{3.id}}"
-      }
-    }
-  ]
-}
-```
+**Solution**:
+- Use OpenClaw's platform-specific content generation
+- Twitter content should be generated with 280-char limit automatically
 
-</details>
-
-## Troubleshooting
-
-### Webhook not triggering
-- Check that `MAKECOM_WEBHOOK_URL` is set correctly in `.env`
-- Verify scenario is **active** (scheduling ON)
-- Check Make.com execution history for errors
-
-### Airtable connection fails
-- Verify API key has `data.records:read` and `data.records:write` permissions
-- Check Base ID is correct
-
-### Buffer posts not creating
-- Ensure Buffer account is connected in Make.com
-- Verify profile IDs are correct
-- Check Buffer free tier limits (10 scheduled posts/channel)
+---
 
 ## Cost Estimate
 
-- **Make.com Free Tier**: 1,000 operations/month
-- **Per article**: ~5-7 operations
-- **Capacity**: ~140-200 articles/month on free tier
+**Make.com Free Tier**:
+- 1,000 operations/month
+- 1 operation = 1 module execution
 
-For higher volumes, upgrade to Make.com Pro ($9/month = 10,000 operations).
+**Example** (30 articles/month, 2 platforms each):
+- Webhook trigger: 30 ops
+- Airtable search: 30 ops  
+- Buffer publish: 60 ops (2 × 30)
+- Airtable update: 60 ops
+- **Total**: 180 ops/month ✅ Within free tier
+
+---
 
 ## Next Steps
 
-After setup:
-1. Copy webhook URL to your `.env` file
-2. Restart the OpenClaw skill
-3. Test with: `trigger_publish`
+1. ✅ Import Make.com blueprint or build manually
+2. Configure OpenClaw webhook URL in `.env`
+3. Test with sample content
+4. Activate scenario
+5. Start your SEO campaign!
 
+For website direct publishing setup, see the implementation plan for Phase 5.

@@ -1,6 +1,6 @@
 # Airtable Schema Reference
 
-Complete schema definition for the SEO Content Hub Airtable base.
+Complete schema definition for the SEO Content Hub Airtable base (v2.0).
 
 ## Campaign_Settings
 
@@ -8,15 +8,15 @@ Campaign configuration and scheduling settings.
 
 | Field Name | Type | Description |
 |------------|------|-------------|
-| `plan_name` | Single line text | Campaign identifier |
-| `start_date` | Date | Campaign start date |
-| `end_date` | Date | Campaign end date |
-| `frequency` | Number | Posts per day (integer) |
-| `publish_time` | Single line text | Daily publish time (format: "HH:MM", e.g., "10:00") |
-| `website_webhook_url` | URL | Optional custom website API endpoint for publishing |
-| `buffer_channels` | Multiple select | Social media channels (options: twitter, linkedin, bluesky) |
-| `auto_approve` | Checkbox | Skip manual review if enabled |
-| `is_active` | Checkbox | Campaign status (active/inactive) |
+| `Plan Name` | Single line text | Campaign identifier |
+| `Start Date` | Date | Campaign start date |
+| `End Date` | Date | Campaign end date |
+| `Frequency` | Number | Posts per day (integer) |
+| `Publish Time` | Single line text | Daily publish time (format: "HH:MM", e.g., "10:00") |
+| `Website Webhook URL` | URL | Optional custom website API endpoint for publishing |
+| `Buffer Channels` | Multiple select | Social media channels (options: twitter, linkedin, bluesky) |
+| `Auto Approve` | Checkbox | Skip manual review if enabled |
+| `Is Active` | Checkbox | Campaign status (active/inactive) |
 
 ## Keyword_Pool
 
@@ -24,25 +24,86 @@ Keyword library for content generation.
 
 | Field Name | Type | Description |
 |------------|------|-------------|
-| `keyword` | Single line text | Search term or topic keyword |
-| `category` | Single select | Keyword categorization (options: General, Technical, Business) |
-| `status` | Single select | Usage status (options: 未开始, 已使用, 失效) |
+| `Keyword` | Single line text | Search term or topic keyword |
+| `Category` | Single select | Keyword categorization (options: General, Technical, Business) |
+| `Status` | Single select | Usage status (options: **Available**, **Used**, **Deprecated**) |
 
 ## Content_Hub
 
-Generated content library with publishing workflow.
+Generated content library with multi-platform publishing workflow.
 
 | Field Name | Type | Description |
 |------------|------|-------------|
-| `title` | Single line text | Article title |
-| `body` | Long text | Full HTML content |
-| `seo_metadata` | Long text | JSON containing: slug, description, schema_markup |
-| `social_snippet` | Long text | Social media post text (< 280 characters) |
-| `cover_image` | Attachment | Featured image (from Unsplash or DALL-E) |
-| `status` | Single select | Workflow status (options: 待审核, 已批准, 发布中, 已发布, 发布失败) |
-| `live_url` | URL | Published article URL (filled after publishing) |
-| `published_at` | Date & Time | Publication timestamp |
-| `error_message` | Long text | Error details if publishing fails |
+| `Title` | Single line text | Article title |
+| `Body` | Long text | Full content (HTML for website, plain text for social) |
+| `SEO Metadata` | Long text | JSON containing: slug, description, schema_markup |
+| `Social Snippet` | Long text | Social media post text (< 280 characters) |
+| `Images` | Multiple Attachments | All images for this content (cover + inline) |
+| `Image Metadata` | Long text | JSON array with image positions and purposes (see below) |
+| `Status` | Single select | Workflow status (options: **Pending**, **Approved**, **Publishing**, **Published**, **Failed**) |
+| `Platform` | Multiple select | Distribution channels (options: **X (Twitter)**, **LinkedIn**, **Website**) |
+| `Scheduled Time` | Date & Time | When to publish this content |
+| `Next to Publish` | Checkbox | Flag for Make.com to pick up for immediate publishing |
+| `Live URL` | URL | Published article URL (filled after publishing) |
+| `Published At` | Date & Time | Publication timestamp |
+| `Error Message` | Long text | Error details if publishing fails |
+
+### Image Metadata JSON Structure
+
+The `Image Metadata` field contains an array mapping images to their usage:
+
+```json
+[
+  {
+    "filename": "cover-image.jpg",
+    "purpose": "cover",
+    "platforms": ["Website", "LinkedIn", "X (Twitter)"],
+    "position": "featured",
+    "alt_text": "Descriptive alt text for accessibility",
+    "source": "dall-e-3"
+  },
+  {
+    "filename": "inline-diagram.png",
+    "purpose": "inline",
+    "platforms": ["Website"],
+    "position": "after-paragraph-2",
+    "alt_text": "Workflow diagram showing SEO process",
+    "source": "unsplash"
+  },
+  {
+    "filename": "social-thumbnail.jpg",
+    "purpose": "social",
+    "platforms": ["X (Twitter)", "LinkedIn"],
+    "position": "attached",
+    "alt_text": "Eye-catching social media thumbnail",
+    "source": "manual"
+  }
+]
+```
+
+**Field Definitions**:
+- `filename`: Matches the attachment filename in the `Images` field
+- `purpose`: `cover` | `inline` | `social` | `thumbnail`
+- `platforms`: Array of platforms where this image is used
+- `position`: 
+  - `featured` - Hero/cover image at top
+  - `after-paragraph-N` - Inline after specific paragraph (Website only)
+  - `attached` - Attached to post (X, LinkedIn)
+  - `end` - At the end of content
+- `alt_text`: Accessibility description
+- `source`: `dall-e-3` | `unsplash` | `manual` | `user-upload`
+
+## Platform Field Options
+
+The `Platform` field is a multi-select that determines distribution channels:
+
+- **X (Twitter)**: Published via Make.com → Buffer → Twitter/X
+- **LinkedIn**: Published via Make.com → Buffer → LinkedIn
+- **Website**: Published directly by OpenClaw via your website API
+
+**Example**: If Platform = ["X (Twitter)", "Website"], the content will:
+1. Post to Twitter via Make.com automation
+2. Post to your website via OpenClaw direct API call
 
 ## SEO Metadata JSON Structure
 
@@ -61,7 +122,7 @@ The `seo_metadata` field contains a JSON object:
       "@type": "Organization",
       "name": "Your Organization"
     },
-    "datePublished": "2026-02-11T10:00:00Z",
+    "datePublished": "2026-02-12T10:00:00Z",
     "keywords": "keyword1, keyword2"
   }
 }
@@ -72,15 +133,42 @@ The `seo_metadata` field contains a JSON object:
 Content status follows this workflow:
 
 ```
-待审核 (Pending Review)
+Pending
     ↓
-已批准 (Approved) ← Manual user action in Airtable
+Approved ← Manual user action in Airtable
     ↓
-发布中 (Publishing) ← Make.com processing
+Publishing ← Make.com processing
     ↓
-已发布 (Published) OR 发布失败 (Failed)
+Published OR Failed
 ```
+
+**Status Definitions**:
+- **Pending**: Newly generated, awaiting review
+- **Approved**: Reviewed and ready for scheduling
+- **Publishing**: Currently being published by Make.com
+- **Published**: Successfully published to all platforms
+- **Failed**: Publishing encountered an error (see Error Message field)
+
+## Publishing Workflow
+
+The `Next to Publish` checkbox controls when Make.com publishes content:
+
+1. **Content Generation**: OpenClaw creates content with Status = "Pending" or "Approved"
+2. **Scheduling**: Content sits in Airtable with `Scheduled Time` set
+3. **Trigger Time**: When OpenClaw's scheduler hits `Scheduled Time`:
+   - Sets `Next to Publish = true` on that record
+   - Triggers Make.com webhook
+4. **Make.com Execution**: 
+   - Queries Airtable: `AND({Status}="Approved", {Next to Publish})`
+   - Publishes to platforms based on `Platform` field
+   - Updates Status = "Published", Next to Publish = false
 
 ## Auto-Creation
 
-When using the skill's auto-initialization feature, all three tables are created automatically with the correct field types and select options. No manual table creation is required.
+When using the skill's auto-initialization feature (`check_and_initialize_base()`), all three tables are created automatically with the correct field types and select options. No manual table creation is required.
+
+**Required Airtable API Permissions**:
+- `schema.bases:read` - Read base structure
+- `schema.bases:write` - Create bases and tables
+- `data.records:read` - Read content
+- `data.records:write` - Update status

@@ -236,7 +236,7 @@ Base ID: {result['base_id']}
 👉 请前往 Airtable 审核内容：
 {airtable_link}
 
-审核完成后，将状态改为"已批准"即可。
+After review, change the status to \"Approved\" to proceed.
         """
     
     def _handle_status_query(self) -> str:
@@ -264,11 +264,11 @@ Base ID: {result['base_id']}
 📝 内容统计：
 - 总关键词：{stats['total_keywords']} 个
 - 已使用：{stats['used_keywords']} 个
-- 待审核：{stats['pending_articles']} 篇
-- 已批准：{stats['approved_articles']} 篇
-- 已发布：{stats['published_articles']} 篇
+- Pending: {stats['pending_articles']} articles
+- Approved: {stats['approved_articles']} articles
+- Published: {stats['published_articles']} articles
 
-🎯 今日任务：{stats['today_published']}/{campaign['frequency']} 篇已发布
+🎯 Today's Progress: {stats['today_published']}/{campaign['frequency']} published
         """
     
     def _handle_stop_campaign(self) -> str:

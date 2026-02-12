@@ -121,19 +121,19 @@ class CampaignScheduler:
                 if (now.hour == reminder_time.hour and 
                     abs(now.minute - reminder_time.minute) < 5):
                     
-                    pending = self.client.count_records("待审核")
-                    approved = self.client.count_records("已批准")
+                    pending = self.client.count_records("Pending")
+                    approved = self.client.count_records("Approved")
                     
                     if pending > 0:
-                        airtable_link = self.generate_airtable_link(filter="待审核")
+                        airtable_link = self.generate_airtable_link(filter="Pending")
                         
                         message = f"""
 ⏰ 今日发布提醒 (3 小时后发布)
 
 📅 发布计划：
 - 时间：{publish_time_str}
-- 待审核文章：{pending} 篇
-- 已批准文章：{approved} 篇
+- Pending articles: {pending}
+- Approved articles: {approved}
 
 ⚠️ 请尽快前往 Airtable 审核：
 {airtable_link}
@@ -158,7 +158,7 @@ class CampaignScheduler:
         
         for campaign in campaigns:
             if campaign.get("publish_time") == current_time:
-                approved_count = self.client.count_records("已批准")
+                approved_count = self.client.count_records("Approved")
                 
                 if approved_count > 0:
                     self.trigger_makecom()
@@ -195,7 +195,7 @@ class CampaignScheduler:
         Generate deep link to Airtable view
         
         Args:
-            filter: Optional filter value (e.g., "待审核")
+            filter: Optional filter value (e.g., "Pending")
             
         Returns:
             Full Airtable URL

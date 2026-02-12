@@ -1,0 +1,275 @@
+{
+    "name": "SEO Content Distribution - Multi-Platform",
+    "description": "OpenClaw SEO skill integration: Fetch approved content from Airtable and distribute to X (Twitter), LinkedIn via Buffer",
+    "flow": [
+        {
+            "id": 1,
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "parameters": {
+                "hook": "{{YOUR_WEBHOOK_ID}}",
+                "maxResults": 1
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": 0,
+                    "y": 0
+                },
+                "restore": {
+                    "parameters": {
+                        "hook": {
+                            "data": {
+                                "editable": "true"
+                            },
+                            "label": "OpenClaw Webhook"
+                        }
+                    }
+                }
+            },
+            "comment": "Triggered by OpenClaw when content is ready to publish"
+        },
+        {
+            "id": 2,
+            "module": "airtable:ActionSearchRecords",
+            "version": 3,
+            "parameters": {
+                "__IMTCONN__": "{{YOUR_AIRTABLE_CONNECTION_ID}}"
+            },
+            "mapper": {
+                "base": "{{YOUR_BASE_ID}}",
+                "table": "{{YOUR_CONTENT_HUB_TABLE_ID}}",
+                "fields": [
+                    "Title",
+                    "Body",
+                    "Status",
+                    "Scheduled Time",
+                    "Platform",
+                    "Next to Publish"
+                ],
+                "formula": "AND({Status}=\"Approved\", {Next to Publish})",
+                "maxRecords": "10",
+                "useColumnId": false
+            },
+            "metadata": {
+                "designer": {
+                    "x": 300,
+                    "y": 0
+                },
+                "restore": {
+                    "expect": {
+                        "base": {
+                            "mode": "chose",
+                            "label": "SEO Content Hub"
+                        },
+                        "table": {
+                            "mode": "chose",
+                            "label": "Content_Hub"
+                        },
+                        "fields": {
+                            "mode": "chose",
+                            "label": [
+                                "Title",
+                                "Body",
+                                "Status",
+                                "Scheduled Time",
+                                "Platform",
+                                "Next to Publish"
+                            ]
+                        }
+                    }
+                }
+            },
+            "comment": "Fetch all approved content marked as 'Next to Publish'"
+        },
+        {
+            "id": 3,
+            "module": "builtin:BasicRouter",
+            "version": 1,
+            "mapper": null,
+            "metadata": {
+                "designer": {
+                    "x": 600,
+                    "y": 0
+                }
+            },
+            "routes": [
+                {
+                    "flow": [
+                        {
+                            "id": 4,
+                            "module": "buffer:ActionCreateStatus",
+                            "version": 2,
+                            "parameters": {
+                                "account": "{{YOUR_BUFFER_CONNECTION_ID}}"
+                            },
+                            "filter": {
+                                "name": "Publish to X (Twitter)",
+                                "conditions": [
+                                    [
+                                        {
+                                            "a": "{{2.Platform}}",
+                                            "b": "X (Twitter)",
+                                            "o": "array:contain:ci"
+                                        }
+                                    ]
+                                ]
+                            },
+                            "mapper": {
+                                "text": "{{2.Body}}",
+                                "type": "now",
+                                "shorten": true,
+                                "useMedia": false,
+                                "attachment": false,
+                                "profileIds": [
+                                    "{{YOUR_TWITTER_PROFILE_ID}}"
+                                ]
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 900,
+                                    "y": -150
+                                }
+                            },
+                            "comment": "Posts to X (Twitter) via Buffer if Platform contains 'X (Twitter)'"
+                        },
+                        {
+                            "id": 5,
+                            "module": "airtable:ActionUpdateRecords",
+                            "version": 3,
+                            "parameters": {
+                                "__IMTCONN__": "{{YOUR_AIRTABLE_CONNECTION_ID}}"
+                            },
+                            "mapper": {
+                                "id": "{{2.id}}",
+                                "base": "{{YOUR_BASE_ID}}",
+                                "table": "{{YOUR_CONTENT_HUB_TABLE_ID}}",
+                                "record": {
+                                    "Status": "Published",
+                                    "Next to Publish": false
+                                },
+                                "typecast": false,
+                                "useColumnId": false
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 1200,
+                                    "y": -150
+                                }
+                            },
+                            "comment": "Mark as Published in Airtable after successful post"
+                        }
+                    ]
+                },
+                {
+                    "flow": [
+                        {
+                            "id": 6,
+                            "module": "buffer:ActionCreateStatus",
+                            "version": 2,
+                            "parameters": {
+                                "account": "{{YOUR_BUFFER_CONNECTION_ID}}"
+                            },
+                            "filter": {
+                                "name": "Publish to LinkedIn",
+                                "conditions": [
+                                    [
+                                        {
+                                            "a": "{{2.Platform}}",
+                                            "b": "LinkedIn",
+                                            "o": "array:contain:ci"
+                                        }
+                                    ]
+                                ]
+                            },
+                            "mapper": {
+                                "text": "{{2.Body}}",
+                                "type": "now",
+                                "shorten": true,
+                                "useMedia": false,
+                                "attachment": false,
+                                "profileIds": [
+                                    "{{YOUR_LINKEDIN_PROFILE_ID}}"
+                                ]
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 900,
+                                    "y": 150
+                                }
+                            },
+                            "comment": "Posts to LinkedIn via Buffer if Platform contains 'LinkedIn'"
+                        },
+                        {
+                            "id": 7,
+                            "module": "airtable:ActionUpdateRecords",
+                            "version": 3,
+                            "parameters": {
+                                "__IMTCONN__": "{{YOUR_AIRTABLE_CONNECTION_ID}}"
+                            },
+                            "mapper": {
+                                "id": "{{2.id}}",
+                                "base": "{{YOUR_BASE_ID}}",
+                                "table": "{{YOUR_CONTENT_HUB_TABLE_ID}}",
+                                "record": {
+                                    "Status": "Published",
+                                    "Next to Publish": false
+                                },
+                                "typecast": false,
+                                "useColumnId": false
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 1200,
+                                    "y": 150
+                                }
+                            },
+                            "comment": "Mark as Published in Airtable after successful post"
+                        }
+                    ]
+                }
+            ],
+            "comment": "Route content based on Platform field - Website is handled directly by OpenClaw"
+        }
+    ],
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "confidential": false,
+            "dataloss": false
+        },
+        "designer": {
+            "orphans": []
+        }
+    },
+    "setup_instructions": {
+        "step_1": "Create new scenario in Make.com",
+        "step_2": "Import this JSON blueprint",
+        "step_3": "Replace all {{PLACEHOLDERS}} with your actual IDs:",
+        "placeholders": {
+            "YOUR_WEBHOOK_ID": "Create a webhook in Make.com and copy the ID",
+            "YOUR_AIRTABLE_CONNECTION_ID": "Connect your Airtable account in Make.com",
+            "YOUR_BASE_ID": "Your Airtable base ID (starts with 'app')",
+            "YOUR_CONTENT_HUB_TABLE_ID": "Your Content_Hub table ID (starts with 'tbl')",
+            "YOUR_BUFFER_CONNECTION_ID": "Connect your Buffer account in Make.com",
+            "YOUR_TWITTER_PROFILE_ID": "Your Buffer Twitter/X profile ID",
+            "YOUR_LINKEDIN_PROFILE_ID": "Your Buffer LinkedIn profile ID"
+        },
+        "step_4": "Test the scenario with sample data",
+        "step_5": "Activate the scenario",
+        "step_6": "Copy webhook URL and configure OpenClaw to trigger it"
+    },
+    "notes": [
+        "The 'Website' platform is handled directly by OpenClaw via website API integration",
+        "Make.com only handles social media distribution (X, LinkedIn) via Buffer",
+        "The filter formula 'AND({Status}=\"Approved\", {Next to Publish})' ensures only ready content is published",
+        "After publishing, status is updated to 'Published' and 'Next to Publish' is unchecked",
+        "You can add more platforms by duplicating the route pattern"
+    ]
+}

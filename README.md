@@ -1,6 +1,25 @@
 # SEO Operations Agent
 
-> **Latest Version**: [Download v2.3.0](https://github.com/0xMoji/seo-operations-agent/releases/latest/download/seo-operations-agent.skill) | [All Releases](https://github.com/0xMoji/seo-operations-agent/releases)
+> **⚠️ FOR AI AGENTS**: This is a **packaged OpenClaw skill**. Do NOT clone this repository for installation. Instead, download the pre-built `.skill` file using one of the methods below.
+
+## 📦 Installation (Choose One)
+
+### For AI Agents - Automated Download
+```bash
+# Download latest .skill file automatically
+curl -L -o seo-operations-agent.skill https://github.com/0xMoji/seo-operations-agent/releases/latest/download/seo-operations-agent.skill
+```
+
+### For Users - Quick Install
+**Windows**: `irm https://raw.githubusercontent.com/0xMoji/seo-operations-agent/main/install.ps1 | iex`  
+**Unix/Linux/macOS**: `curl -fsSL https://raw.githubusercontent.com/0xMoji/seo-operations-agent/main/install.sh | bash`
+
+### Manual Download
+[**→ Download Latest Release (v2.3.0)**](https://github.com/0xMoji/seo-operations-agent/releases/latest/download/seo-operations-agent.skill) | [All Releases](https://github.com/0xMoji/seo-operations-agent/releases)
+
+---
+
+## About
 
 A fully automated, private SEO content generation and distribution system built as an OpenClaw skill.
 
@@ -18,10 +37,9 @@ A fully automated, private SEO content generation and distribution system built 
 
 ## Quick Start
 
-1. **Install**: Load the skill into OpenClaw
-2. **Configure Airtable**: Add API token to `.env`
-3. **Auto-Setup**: Skill creates base and tables automatically
-4. **Start Campaign**: `启动一个为期 30 天的计划，主题是 Web3 隐私技术，每天 1 篇`
+1. **Install**: Download and load the `.skill` file into OpenClaw (see installation methods above)
+2. **Configure**: The skill will guide you through Airtable setup on first use
+3. **Run**: Start a campaign with natural language commands
 
 See [SKILL.md](SKILL.md) for complete documentation.
 
@@ -35,40 +53,6 @@ OpenClaw (Scheduler) → Airtable (Hub) → Make.com (Pipe) → Websites + Socia
 - **Brain**: OpenClaw skill (AI content generation, scheduling)
 - **Hub**: Airtable (content management, review workflow)
 - **Pipe**: Make.com (multi-platform distribution)
-
-## Installation
-
-### Option 1: Auto-Download (Recommended)
-
-**Windows (PowerShell)**:
-```powershell
-irm https://raw.githubusercontent.com/0xMoji/seo-operations-agent/main/install.ps1 | iex
-```
-
-**Unix/Linux/macOS**:
-```bash
-curl -fsSL https://raw.githubusercontent.com/0xMoji/seo-operations-agent/main/install.sh | bash
-```
-
-### Option 2: Manual Download
-
-Download the latest `.skill` file from [Releases](https://github.com/0xMoji/seo-operations-agent/releases/latest) and load into OpenClaw.
-
-### Option 3: Clone Repository
-
-```bash
-git clone https://github.com/0xMoji/seo-operations-agent.git
-cd seo-operations-agent
-# Then run the install script to get the packaged .skill file
-./install.sh  # or install.ps1 on Windows
-```
-
-Configure environment:
-
-```bash
-cp .env.example .env
-# Edit .env with your API keys
-```
 
 ## Configuration
 

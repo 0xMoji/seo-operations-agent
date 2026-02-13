@@ -25,7 +25,6 @@ Keyword library for content generation.
 | Field Name | Type | Description |
 |------------|------|-------------|
 | `Keyword` | Single line text | Search term or topic keyword |
-| `Category` | Single select | Keyword categorization (options: General, Technical, Business) |
 | `Status` | Single select | Usage status (options: **Available**, **Used**, **Deprecated**) |
 
 ## Content_Hub
@@ -44,9 +43,8 @@ Generated content library with multi-platform publishing workflow.
 | `Platform` | Multiple select | Distribution channels (options: **X (Twitter)**, **LinkedIn**, **Website**) |
 | `Scheduled Time` | Date & Time | When to publish this content |
 | `Next to Publish` | Checkbox | Flag for Make.com to pick up for immediate publishing |
-| `Live URL` | URL | Published article URL (filled after publishing) |
-| `Published At` | Date & Time | Publication timestamp |
-| `Error Message` | Long text | Error details if publishing fails |
+| `Live URL` | URL | Published article URL (filled by Make.com after publishing) |
+| `Published At` | Date & Time | Publication timestamp (filled by Make.com) |
 
 ### Image Metadata JSON Structure
 
@@ -137,17 +135,13 @@ Pending
     ↓
 Approved ← Manual user action in Airtable
     ↓
-Publishing ← Make.com processing
-    ↓
-Published OR Failed
+Published ← Set by Make.com after successful publish
 ```
 
 **Status Definitions**:
-- **Pending**: Newly generated, awaiting review
-- **Approved**: Reviewed and ready for scheduling
-- **Publishing**: Currently being published by Make.com
-- **Published**: Successfully published to all platforms
-- **Failed**: Publishing encountered an error (see Error Message field)
+- **Pending**: Newly generated content awaiting review
+- **Approved**: Reviewed and ready for publishing
+- **Published**: Successfully published to platform(s)
 
 ## Publishing Workflow
 

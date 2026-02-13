@@ -100,22 +100,25 @@ Base ID: {result['base_id']}
             self._update_env_file("AIRTABLE_BASE_ID", result["base_id"])
             
             return f"""
-✅ 已自动创建 Airtable Base！
+✅ Airtable Base Auto-Created Successfully!
 
-📊 Base ID: {result['base_id']}
-🔗 访问链接: {result['base_url']}
+📊 Base: SEO Content Hub  
+🔗 Access: {result['base_url']}
 
-已创建的表：
-- Campaign_Settings (运营计划配置)
-- Keyword_Pool (关键词库)
-- Content_Hub (内容中心)
+📋 Tables Created:
+• Campaign_Settings - Your SEO campaigns
+• Keyword_Pool - Content keywords  
+• Content_Hub - Generated articles
 
-⚠️ 重要：Base ID 已保存到 .env 文件，请重启 skill 使其生效。
+⚙️ Configuration:
+Base ID has been saved to .env file.
+Please restart the skill to apply changes.
 
-之后配置：
-1. Make.com Webhook (可选，用于自动发布)
-2. Unsplash API (可选，用于自动配图)
-            """
+🎯 Next Steps:
+1. Restart this skill
+2. Create your first campaign
+   Example: "启动一个为期 30 天的计划，主题是 Web3 隐私技术，每天 1 篇"
+            """.strip()
         
         elif result["status"] == "updated":
             return f"""

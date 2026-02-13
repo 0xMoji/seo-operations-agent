@@ -203,17 +203,6 @@ class AirtableClient:
                 "fields": [
                     {"name": "Keyword", "type": "singleLineText"},
                     {
-                        "name": "Category",
-                        "type": "singleSelect",
-                        "options": {
-                            "choices": [
-                                {"name": "General"},
-                                {"name": "Technical"},
-                                {"name": "Business"}
-                            ]
-                        }
-                    },
-                    {
                         "name": "Status",
                         "type": "singleSelect",
                         "options": {
@@ -243,9 +232,7 @@ class AirtableClient:
                             "choices": [
                                 {"name": "Pending"},
                                 {"name": "Approved"},
-                                {"name": "Publishing"},
-                                {"name": "Published"},
-                                {"name": "Failed"}
+                                {"name": "Published"}
                             ]
                         }
                     },
@@ -263,8 +250,7 @@ class AirtableClient:
                     {"name": "Scheduled Time", "type": "dateTime"},
                     {"name": "Next to Publish", "type": "checkbox"},
                     {"name": "Live URL", "type": "url"},
-                    {"name": "Published At", "type": "dateTime"},
-                    {"name": "Error Message", "type": "multilineText"}
+                    {"name": "Published At", "type": "dateTime"}
                 ]
             }
         ]
@@ -335,8 +321,7 @@ class AirtableClient:
             {
                 "fields": {
                     "Keyword": kw,
-                    "Status": "Available",
-                    "Category": "General"
+                    "Status": "Available"
                 }
             }
             for kw in keywords

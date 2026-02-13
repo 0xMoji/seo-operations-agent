@@ -5,6 +5,8 @@ A fully automated, private SEO content generation and distribution system built 
 ## Features
 
 - 🧠 **Smart Content Generation**: AI-powered SEO-optimized articles
+- 💡 **Knowledge Injection (v2.1)**: Automatically collects your expertise before writing
+- 🎨 **Flexible Image Generation (v2.2)**: Support for 8+ AI providers (OpenAI, Google, etc.)
 - 📅 **Automated Scheduling**: Set-and-forget content calendar
 - 🔔 **Intelligent Reminders**: Pre-publish notifications
 - 🌐 **Multi-Platform Distribution**: Custom websites + social media

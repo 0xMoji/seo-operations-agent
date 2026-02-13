@@ -10,7 +10,8 @@ A fully automated, private SEO content generation and distribution system built 
 ## Features
 
 - 🧠 **Smart Content Generation**: AI-powered article creation with SEO optimization
-- 🎨 **Multi-Image Support**: Automated image generation (DALL-E/Unsplash) with position tracking
+- 💡 **Knowledge Injection** (v2.1): Automatically collects your domain expertise before generating content
+- 🎨 **Flexible Image Generation** (v2.2): Support for 8+ AI image providers (OpenAI, Google, Stability AI, etc.)
 - 📅 **Automated Scheduling**: Set-and-forget content calendar management
 - 🔔 **Intelligent Reminders**: Pre-publish notifications and content inventory monitoring
 - 🌐 **Multi-Platform Distribution**: Website + X (Twitter) + LinkedIn with platform-specific content
@@ -63,7 +64,34 @@ The agent will:
 - Auto-check content inventory
 - Generate articles if any channel has < 10 pieces
 
-### 4. Manual Content Generation
+### 4. Knowledge Collection (v2.1 - Automated)
+
+When generating content, the agent will **automatically** ask you 3 questions about the keyword:
+
+```
+Agent: 📝 关键词: "零知识证明"
+       
+       为了让内容更专业，请分享您对这个主题的见解：
+       
+       1. 零知识证明在实际项目中解决了哪些核心问题？
+       2. 与传统方案相比，有什么独特优势？
+       3. 开发者在使用时通常会遇到什么挑战？
+       
+       💬 请回答（或说"跳过"直接生成）
+
+You: 1. 跨链身份验证和隐私交易
+     2. 不解密也能计算
+     3. 性能开销大
+```
+
+The agent will:
+- Parse your answers using AI
+- Naturally integrate your expertise into the article
+- Save knowledge for future reference
+
+**Skip option**: Say "跳过" to generate without knowledge collection.
+
+### 5. Manual Content Generation
 
 ```
 现在生成内容
@@ -75,7 +103,7 @@ The agent will:
 生成 5 篇文章
 ```
 
-### 5. Review Content
+### 6. Review Content
 
 After generation, you'll receive an Airtable link:
 
@@ -116,19 +144,42 @@ trigger_publish
 把刚才那篇文章的发布推迟
 ```
 
-### Image Management
+### Image Management (v2.2 - Flexible Configuration)
+
+The skill **auto-detects** configured image providers and asks for confirmation:
 
 ```bash
-# Configure image generation (choose one or both)
-IMAGE_GENERATION_MODEL=dall-e-3  # AI-generated custom images
-UNSPLASH_ACCESS_KEY=xxx          # Stock photography
+# Option 1: OpenAI DALL-E
+OPENAI_API_KEY=sk-...
 
-# The skill automatically:
-# - Generates cover images for all platforms
-# - Adds inline images for website articles
-# - Creates social media thumbnails for Twitter/LinkedIn
-# - Tracks image positions in Airtable metadata
+# Option 2: Google Imagen
+GOOGLE_API_KEY=your-key
+
+# Option 3: Stability AI
+STABILITY_API_KEY=sk-...
+
+# Option 4: Replicate
+REPLICATE_API_TOKEN=r8_...
+
+# Option 5: Custom API (any provider)
+IMAGE_API_KEY=your-key
+IMAGE_API_ENDPOINT=https://api.xxx.com/generate
+IMAGE_MODEL=flux-schnell
+IMAGE_PROVIDER=MyProvider
+
+# Stock photography fallback
+UNSPLASH_ACCESS_KEY=xxx
 ```
+
+**Supported providers**: OpenAI, Google Imagen, Stability AI, Replicate, RunPod, Together AI, Hugging Face, Custom
+
+The skill automatically:
+- Detects configured providers from env vars
+- Asks which one to use if multiple found
+- Generates cover images for all platforms
+- Adds inline images for website articles
+- Creates social media thumbnails for Twitter/LinkedIn
+- Tracks image positions in Airtable metadata
 
 ## Architecture
 

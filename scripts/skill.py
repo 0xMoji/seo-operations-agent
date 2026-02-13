@@ -160,13 +160,30 @@ Base ID: {result['base_id']}
         topic = params.get("topic", "")
         frequency = params.get("frequency", 1)
         
+        # Input validation
+        if duration <= 0 or duration > 365:
+            return "❌ Campaign duration must be between 1-365 days."
+        
+        if frequency <= 0 or frequency > 10:
+            return "❌ Frequency must be between 1-10 articles per day."
+        
+        if not topic or len(topic.strip()) == 0:
+            return "❌ Please provide a valid campaign topic."
+        
+        start_date = date.today()
+        end_date = start_date + timedelta(days=duration)
+        
+        # Validate date range
+        if end_date <= start_date:
+            return "❌ End date must be after start date."
+        
         # Interactive prompts for additional config
         # (In real implementation, this would be multi-turn conversation)
         
         campaign_id = self.airtable.create_campaign({
             "plan_name": f"{topic} SEO Campaign",
-            "start_date": date.today(),
-            "end_date": date.today() + timedelta(days=duration),
+            "start_date": start_date,
+            "end_date": end_date,
             "frequency": frequency,
             "publish_time": "10:00",  # Default, should prompt user
             "auto_approve": False,
@@ -192,6 +209,16 @@ Base ID: {result['base_id']}
         """Add keywords to pool and check content inventory"""
         keywords = params.get("keywords", [])
         
+        # Input validation
+        if not keywords or len(keywords) == 0:
+            return "❌ Please provide at least one keyword."
+        
+        # Filter out empty strings
+        keywords = [kw.strip() for kw in keywords if kw.strip()]
+        
+        if not keywords:
+            return "❌ No valid keywords provided."
+        
         # Add to Airtable
         added_count = self.airtable.add_keywords(keywords)
         
@@ -216,10 +243,29 @@ Base ID: {result['base_id']}
         
         campaign = campaigns[0]
         
-        # Generate articles
+        # Determine platforms from campaign
+        platforms = []
+        if campaign.get("website_webhook_url"):
+            platforms.append("Website")
+        
+        buffer_channels = campaign.get("buffer_channels", [])
+        if "twitter" in buffer_channels:
+            platforms.append("X (Twitter)")
+        if "linkedin" in buffer_channels:
+            platforms.append("LinkedIn")
+        
+        # Default to Website if no platforms configured
+        if not platforms:
+            platforms = ["Website"]
+        
+        # Generate articles with proper parameters
         generated = []
         for i in range(count):
-            article = self.content_engine.generate(campaign)
+            article = self.content_engine.generate(
+                campaign,
+                platforms=platforms,
+                num_images=2 if "Website" in platforms else 1  # More images for website
+            )
             if article:
                 record_id = self.airtable.create_content(article)
                 generated.append(article["title"])

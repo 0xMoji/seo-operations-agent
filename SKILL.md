@@ -10,11 +10,12 @@ A fully automated, private SEO content generation and distribution system built 
 ## Features
 
 - 🧠 **Smart Content Generation**: AI-powered article creation with SEO optimization
+- 🎨 **Multi-Image Support**: Automated image generation (DALL-E/Unsplash) with position tracking
 - 📅 **Automated Scheduling**: Set-and-forget content calendar management
 - 🔔 **Intelligent Reminders**: Pre-publish notifications and content inventory monitoring
-- 🌐 **Multi-Platform Distribution**: Simultaneous publishing to custom websites and social media
+- 🌐 **Multi-Platform Distribution**: Website + X (Twitter) + LinkedIn with platform-specific content
 - 🔒 **Full Privacy**: All data stays in your Airtable, zero third-party storage
-- 💰 **BYOK Model**: You control all API costs (OpenAI, Airtable, Unsplash)
+- 💰 **BYOK Model**: You control all API costs (OpenAI, Airtable, Unsplash/DALL-E)
 
 ## Quick Start
 
@@ -85,7 +86,7 @@ After generation, you'll receive an Airtable link:
 https://airtable.com/appXXXXXX/tblYYYYYY/viwZZZZZZ
 ```
 
-Change status to "已批准" when ready to publish.
+Change status from **"Pending"** to **"Approved"** when ready to publish.
 
 ### 6. Automated Publishing
 
@@ -113,6 +114,20 @@ trigger_publish
 ```bash
 # Postpone article
 把刚才那篇文章的发布推迟
+```
+
+### Image Management
+
+```bash
+# Configure image generation (choose one or both)
+IMAGE_GENERATION_MODEL=dall-e-3  # AI-generated custom images
+UNSPLASH_ACCESS_KEY=xxx          # Stock photography
+
+# The skill automatically:
+# - Generates cover images for all platforms
+# - Adds inline images for website articles
+# - Creates social media thumbnails for Twitter/LinkedIn
+# - Tracks image positions in Airtable metadata
 ```
 
 ## Architecture

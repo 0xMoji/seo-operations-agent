@@ -414,5 +414,8 @@ class ImageManager:
     
     def cleanup_temp_images(self):
         """Clean up temporary downloaded images"""
-        for file in self.temp_dir.glob("*"):
-            file.unlink()
+        import shutil
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+            self.temp_dir.mkdir(exist_ok=True)
+            print(f"🗑️ Cleaned up temporary images from {self.temp_dir}")

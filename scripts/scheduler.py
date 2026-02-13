@@ -73,21 +73,40 @@ class CampaignScheduler:
         generated_summary = []
         
         for campaign in campaigns:
-            for channel in campaign.get("buffer_channels", []):
-                count = self.client.count_pending_content(channel)
+            # Determine platforms from campaign
+            platforms = []
+            if campaign.get("website_webhook_url"):
+                platforms.append("Website")
+            
+            buffer_channels = campaign.get("buffer_channels", [])
+            if "twitter" in buffer_channels:
+                platforms.append("X (Twitter)")
+            if "linkedin" in buffer_channels:
+                platforms.append("LinkedIn")
+            
+            if not platforms:
+                platforms = ["Website"]
+            
+            # Check total approved content count (across all platforms)
+            approved_count = self.client.count_records("Approved")
+            
+            if approved_count < 10:
+                keywords_needed = 10 - approved_count
                 
-                if count < 10:
-                    keywords_needed = 10 - count
-                    
-                    # Generate articles
-                    for _ in range(keywords_needed):
-                        article = self.engine.generate(campaign, channel)
-                        if article:
-                            self.client.create_content(article)
-                    
-                    generated_summary.append(
-                        f"检测到 {channel} 渠道剩余内容不足，已自动生成 {keywords_needed} 篇文章"
+                # Generate articles with platform support
+                for _ in range(keywords_needed):
+                    article = self.engine.generate(
+                        campaign,
+                        platforms=platforms,
+                        num_images=2 if "Website" in platforms else 1
                     )
+                    if article:
+                        self.client.create_content(article)
+                
+                platforms_str = ", ".join(platforms)
+                generated_summary.append(
+                    f"Detected low inventory: auto-generated {keywords_needed} articles for {platforms_str}"
+                )
         
         if generated_summary:
             message = "\n".join(generated_summary)

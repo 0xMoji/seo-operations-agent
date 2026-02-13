@@ -68,17 +68,38 @@ class ContentEngine:
         try:
             content_data = self._call_openai(prompt)
             
-            # Generate images for all platforms
-            images = self.image_manager.generate_images_for_content(
-                keyword=keyword,
-                title=content_data["title"],
-                platforms=platforms,
-                num_images=num_images
-            )
+            # Generate images for all platforms with error recovery
+            images = []
+            image_metadata = "[]"
             
-            # Convert images to format expected by Airtable
-            image_urls = [img.url for img in images if img.url]
-            image_metadata = json.dumps([img.to_dict() for img in images])
+            try:
+                images_result = self.image_manager.generate_images_for_content(
+                    keyword=keyword,
+                    title=content_data["title"],
+                    platforms=platforms,
+                    num_images=num_images
+                )
+                
+                # Convert images to format expected by Airtable
+                images = [img.url for img in images_result if img.url]
+                image_metadata = json.dumps([img.to_dict() for img in images_result])
+                
+            except Exception as img_error:
+                print(f"Image generation failed: {img_error}")
+                # Fallback: try to get at least one cover image from Unsplash
+                try:
+                    fallback_img = self.image_manager._fetch_unsplash_image(
+                        keyword,
+                        purpose="cover",
+                        platforms=platforms
+                    )
+                    if fallback_img:
+                        images = [fallback_img.url]
+                        image_metadata = json.dumps([fallback_img.to_dict()])
+                        print("✅ Fallback: Using Unsplash cover image")
+                except Exception as fallback_error:
+                    print(f"⚠️ Fallback also failed: {fallback_error}. Content will have no images.")
+                    # Continue without images rather than failing entirely
             
             # Mark keyword as used (would need record ID in production)
             
@@ -91,7 +112,7 @@ class ContentEngine:
                     "schema_markup": self._generate_schema_markup(content_data)
                 }),
                 "social_snippet": content_data["social_snippet"],
-                "images": image_urls,
+                "images": images,
                 "image_metadata": image_metadata,
                 "platforms": platforms,
                 "status": "Approved" if campaign.get("auto_approve") else "Pending"
@@ -163,36 +184,6 @@ class ContentEngine:
         
         return json.loads(content)
     
-    def _get_cover_image(self, keyword: str) -> Optional[str]:
-        """Get cover image from Unsplash or return None"""
-        unsplash_key = os.getenv("UNSPLASH_ACCESS_KEY")
-        
-        if not unsplash_key:
-            return None
-        
-        try:
-            url = "https://api.unsplash.com/search/photos"
-            params = {
-                "query": keyword,
-                "per_page": 1,
-                "orientation": "landscape"
-            }
-            headers = {
-                "Authorization": f"Client-ID {unsplash_key}"
-            }
-            
-            response = requests.get(url, params=params, headers=headers)
-            response.raise_for_status()
-            
-            results = response.json().get("results", [])
-            if results:
-                # Return regular size URL (Airtable will download and cache)
-                return results[0]["urls"]["regular"]
-            
-        except Exception as e:
-            print(f"Unsplash fetch error: {e}")
-        
-        return None
     
     def _generate_schema_markup(self, content_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate JSON-LD schema markup for SEO"""

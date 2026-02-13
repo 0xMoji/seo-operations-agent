@@ -38,15 +38,29 @@ OpenClaw (Scheduler) → Airtable (Hub) → Make.com (Pipe) → Websites + Socia
 
 ## Installation
 
-### Option 1: Use Pre-built Package
+### Option 1: Auto-Download (Recommended)
 
-Download `seo-operations-agent.skill` and load into OpenClaw.
+**Windows (PowerShell)**:
+```powershell
+irm https://raw.githubusercontent.com/0xMoji/seo-operations-agent/main/install.ps1 | iex
+```
 
-### Option 2: Clone Repository
+**Unix/Linux/macOS**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xMoji/seo-operations-agent/main/install.sh | bash
+```
+
+### Option 2: Manual Download
+
+Download the latest `.skill` file from [Releases](https://github.com/0xMoji/seo-operations-agent/releases/latest) and load into OpenClaw.
+
+### Option 3: Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/seo-agent.git
-cd seo-agent
+git clone https://github.com/0xMoji/seo-operations-agent.git
+cd seo-operations-agent
+# Then run the install script to get the packaged .skill file
+./install.sh  # or install.ps1 on Windows
 ```
 
 Configure environment:

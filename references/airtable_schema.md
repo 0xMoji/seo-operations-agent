@@ -39,11 +39,12 @@ Generated content library with multi-platform publishing workflow.
 | `Social Snippet` | Long text | Social media post text (< 280 characters) |
 | `Images` | Multiple Attachments | All images for this content (cover + inline) |
 | `Image Metadata` | Long text | JSON array with image positions and purposes (see below) |
-| `Status` | Single select | Workflow status (options: **Pending**, **Approved**, **Publishing**, **Published**, **Failed**) |
+| `Status` | Single select | Workflow status (options: **Pending**, **Approved**, **Published**) |
 | `Platform` | Multiple select | Distribution channels (options: **X (Twitter)**, **LinkedIn**, **Website**) |
+| `Keywords Used` | Single line text | The keyword used to generate this content (auto-filled) |
+| `Words Count` | Number | Total word count of the body content (auto-calculated) |
 | `Scheduled Time` | Date & Time | When to publish this content |
 | `Next to Publish` | Checkbox | Flag for Make.com to pick up for immediate publishing |
-| `Live URL` | URL | Published article URL (filled by Make.com after publishing) |
 | `Published At` | Date & Time | Publication timestamp (filled by Make.com) |
 
 ### Image Metadata JSON Structure

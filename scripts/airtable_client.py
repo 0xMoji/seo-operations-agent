@@ -261,9 +261,10 @@ class AirtableClient:
                             ]
                         }
                     },
+                    {"name": "Keywords Used", "type": "singleLineText"},
+                    {"name": "Words Count", "type": "number"},
                     {"name": "Scheduled Time", "type": "dateTime"},
                     {"name": "Next to Publish", "type": "checkbox"},
-                    {"name": "Live URL", "type": "url"},
                     {"name": "Published At", "type": "dateTime"}
                 ]
             }
@@ -401,6 +402,13 @@ class AirtableClient:
                 elif isinstance(img, str):
                     images.append({"url": img})
         
+        # Calculate words count
+        body_text = content.get("body", "")
+        words_count = len(body_text.split()) if body_text else 0
+        
+        # Get keyword used
+        keyword_used = content.get("keyword", "")
+        
         payload = {
             "fields": {
                 "Title": content["title"],
@@ -411,7 +419,10 @@ class AirtableClient:
                 "Image Metadata": content.get("image_metadata", "[]"),
                 "Status": content.get("status", "Pending"),
                 "Platform": content.get("platforms", []),
-                "Scheduled Time": content.get("scheduled_time", "")
+                "Keywords Used": keyword_used,
+                "Words Count": words_count,
+                "Scheduled Time": content.get("scheduled_time", ""),
+                "Next to Publish": content.get("next_to_publish", False)
             }
         }
         

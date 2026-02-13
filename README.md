@@ -1,6 +1,8 @@
 # SEO Operations Agent
 
 > **⚠️ FOR AI AGENTS**: This is a **packaged OpenClaw skill**. Do NOT clone this repository for installation. Instead, download the pre-built `.skill` file using one of the methods below.
+> 
+> **If you already cloned this repo**, read [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md) for correct installation steps.
 
 ## 📦 Installation (Choose One)
 

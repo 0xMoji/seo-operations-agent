@@ -1,5 +1,7 @@
 # SEO Operations Agent
 
+> **Latest Version**: [Download v2.3.0](https://github.com/0xMoji/seo-operations-agent/releases/latest/download/seo-operations-agent.skill) | [All Releases](https://github.com/0xMoji/seo-operations-agent/releases)
+
 A fully automated, private SEO content generation and distribution system built as an OpenClaw skill.
 
 ## Features
@@ -7,6 +9,7 @@ A fully automated, private SEO content generation and distribution system built 
 - 🧠 **Smart Content Generation**: AI-powered SEO-optimized articles
 - 💡 **Knowledge Injection (v2.1)**: Automatically collects your expertise before writing
 - 🎨 **Flexible Image Generation (v2.2)**: Support for 8+ AI providers (OpenAI, Google, etc.)
+- 📊 **Auto-Tracking (v2.3)**: Keywords Used & Words Count auto-populated
 - 📅 **Automated Scheduling**: Set-and-forget content calendar
 - 🔔 **Intelligent Reminders**: Pre-publish notifications
 - 🌐 **Multi-Platform Distribution**: Custom websites + social media

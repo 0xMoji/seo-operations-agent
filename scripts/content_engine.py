@@ -123,6 +123,7 @@ class ContentEngine:
                 "images": images,
                 "image_metadata": image_metadata,
                 "platforms": platforms,
+                "keyword": keyword,
                 "status": "Approved" if campaign.get("auto_approve") else "Pending"
             }
         except Exception as e:

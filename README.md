@@ -106,16 +106,16 @@ seo-agent/
 
 ```bash
 # Create campaign
-启动一个为期 30 天的计划，主题是 Web3 隐私技术，每天 1 篇
+Start a 30-day campaign on Web3 privacy tech, 1 article per day
 
 # Add keywords
-把这些关键词加到词库里：zkProof, 零知识证明, Web3 身份
+Add these keywords to the pool: zkProof, zero-knowledge proofs, Web3 identity
 
 # Generate content
-现在生成内容
+Generate content now
 
 # Check progress
-汇报一下当前的运营进度
+Report current campaign progress
 ```
 
 ## Privacy & Security

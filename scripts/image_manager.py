@@ -59,6 +59,128 @@ class ImageManager:
         self.temp_dir = Path("./temp_images")
         self.temp_dir.mkdir(exist_ok=True)
     
+    def detect_image_providers(self) -> List[Dict[str, Any]]:
+        """
+        Detect configured image generation providers.
+        
+        Returns:
+            List of detected providers with their details
+        """
+        providers = []
+        
+        # OpenAI / DALL-E
+        if os.getenv("OPENAI_API_KEY"):
+            providers.append({
+                "provider": "OpenAI",
+                "models": ["dall-e-3", "dall-e-2"],
+                "env_var": "OPENAI_API_KEY",
+                "detected": True
+            })
+        
+        # Stability AI
+        if os.getenv("STABILITY_API_KEY"):
+            providers.append({
+                "provider": "Stability AI",
+                "models": ["stable-diffusion-xl", "sdxl-turbo", "sd3"],
+                "env_var": "STABILITY_API_KEY",
+                "detected": True
+            })
+        
+        # Replicate
+        if os.getenv("REPLICATE_API_TOKEN"):
+            providers.append({
+                "provider": "Replicate",
+                "models": ["flux-schnell", "flux-dev", "sdxl", "playground-v2.5"],
+                "env_var": "REPLICATE_API_TOKEN",
+                "detected": True
+            })
+        
+        # Google Imagen (Vertex AI)
+        if os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+            providers.append({
+                "provider": "Google",
+                "models": ["imagen-3.0-generate-001", "imagen-2"],
+                "env_var": "GOOGLE_API_KEY",
+                "detected": True
+            })
+        
+        # RunPod
+        if os.getenv("RUNPOD_API_KEY"):
+            providers.append({
+                "provider": "RunPod",
+                "models": ["sdxl", "flux"],
+                "env_var": "RUNPOD_API_KEY",
+                "detected": True
+            })
+        
+        # Together AI
+        if os.getenv("TOGETHER_API_KEY"):
+            providers.append({
+                "provider": "Together AI",
+                "models": ["flux-schnell", "sdxl", "playground"],
+                "env_var": "TOGETHER_API_KEY",
+                "detected": True
+            })
+        
+        # Hugging Face
+        if os.getenv("HF_API_KEY") or os.getenv("HUGGINGFACE_API_KEY"):
+            providers.append({
+                "provider": "Hugging Face",
+                "models": ["flux", "sdxl"],
+                "env_var": "HF_API_KEY",
+                "detected": True
+            })
+        
+        # User-defined generic (most flexible)
+        if os.getenv("IMAGE_API_KEY"):
+            provider_name = os.getenv("IMAGE_PROVIDER", "Custom")
+            model_name = os.getenv("IMAGE_MODEL", "custom-model")
+            
+            providers.append({
+                "provider": provider_name,
+                "models": [model_name],
+                "env_var": "IMAGE_API_KEY",
+                "detected": True,
+                "custom": True
+            })
+        
+        return providers
+    
+    def get_default_image_config(self) -> Dict[str, str]:
+        """
+        Get default image generation configuration.
+        
+        Priority:
+        1. Explicit IMAGE_GENERATION_PROVIDER + IMAGE_GENERATION_MODEL
+        2. First detected provider
+        3. Unsplash fallback
+        """
+        # Check explicit preference
+        preferred_provider = os.getenv("IMAGE_GENERATION_PROVIDER")
+        preferred_model = os.getenv("IMAGE_GENERATION_MODEL")
+        
+        if preferred_provider and preferred_model:
+            return {
+                "provider": preferred_provider,
+                "model": preferred_model
+            }
+        
+        # Auto-detect
+        providers = self.detect_image_providers()
+        
+        if providers:
+            first = providers[0]
+            return {
+                "provider": first["provider"],
+                "model": first["models"][0]  # Use first model
+            }
+        
+        # Fallback to Unsplash
+        return {
+            "provider": "Unsplash",
+            "model": "stock-photo"
+        }
+    
     def generate_images_for_content(
         self,
         keyword: str,
@@ -125,20 +247,28 @@ class ImageManager:
     ) -> Optional[ImageMetadata]:
         """Generate or fetch cover image"""
         
-        # Try AI generation first if configured
-        if self.default_image_model.startswith("dall-e"):
+        # Get configured provider
+        config = self.get_default_image_config()
+        provider = config.get("provider")
+        model = config.get("model")
+        
+        # Route to appropriate provider
+        if provider == "OpenAI":
             return self._generate_dalle_image(
                 keyword, 
                 title, 
                 purpose="cover",
                 platforms=platforms
             )
-        elif self.default_image_model == "stable-diffusion":
-            return self._generate_sd_image(
+        elif provider in ["Stability AI", "Replicate", "Google", "RunPod", "Together AI", "Hugging Face"]:
+            # Generic AI generation (to be implemented)
+            return self._generate_custom_ai_image(
                 keyword,
                 title,
                 purpose="cover",
-                platforms=platforms
+                platforms=platforms,
+                provider=provider,
+                model=model
             )
         
         # Fallback to Unsplash
@@ -419,3 +549,63 @@ class ImageManager:
             shutil.rmtree(self.temp_dir)
             self.temp_dir.mkdir(exist_ok=True)
             print(f"🗑️ Cleaned up temporary images from {self.temp_dir}")
+    
+    def _generate_custom_ai_image(
+        self,
+        keyword: str,
+        title: str,
+        purpose: ImagePurpose,
+        platforms: List[str],
+        provider: str,
+        model: str
+    ) -> Optional[ImageMetadata]:
+        """
+        Generic AI image generation for custom providers.
+        
+        Supports OpenAI-compatible APIs.
+        """
+        # Get API configuration
+        api_key = None
+        endpoint = None
+        
+        if provider == "Custom":
+            api_key = os.getenv("IMAGE_API_KEY")
+            endpoint = os.getenv("IMAGE_API_ENDPOINT")
+        elif provider == "Replicate":
+            api_key = os.getenv("REPLICATE_API_TOKEN")
+            endpoint = "https://api.replicate.com/v1/predictions"
+        elif provider == "Banana":
+            api_key = os.getenv("BANANA_API_KEY")
+            # Banana has different API structure
+            print(f"⚠️ {provider} integration not yet implemented")
+            return None
+        elif provider == "Together AI":
+            api_key = os.getenv("TOGETHER_API_KEY")
+            endpoint = "https://api.together.xyz/v1/images/generations"
+        elif provider == "Hugging Face":
+            api_key = os.getenv("HF_API_KEY") or os.getenv("HUGGINGFACE_API_KEY")
+            endpoint = f"https://api-inference.huggingface.co/models/{model}"
+        else:
+            print(f"⚠️ Unknown provider: {provider}")
+            return None
+        
+        if not api_key or not endpoint:
+            print(f"⚠️ Missing configuration for {provider}")
+            return None
+        
+        # Build prompt
+        prompt = self._build_image_prompt(keyword, title, purpose)
+        
+        # For now, return placeholder - full implementation in future PR
+        print(f"ℹ️  {provider} integration coming soon. Falling back to Unsplash.")
+        return self._fetch_unsplash_image(keyword, purpose, platforms)
+    
+    def _build_image_prompt(self, keyword: str, title: str, purpose: ImagePurpose) -> str:
+        """Build image generation prompt based on purpose"""
+        if purpose == "cover":
+            return f"Professional blog header image for article titled '{title}', modern and clean design, topic: {keyword}"
+        elif purpose == "social":
+            return f"Eye-catching social media image for topic: {keyword}, vibrant and engaging"
+        else:
+            return f"Illustration for {keyword}, professional and informative"
+

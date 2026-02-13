@@ -212,7 +212,21 @@ class AirtableClient:
                                 {"name": "Deprecated"}
                             ]
                         }
-                    }
+                    },
+                    {"name": "Knowledge", "type": "multilineText"},
+                    {
+                        "name": "Collection Status",
+                        "type": "singleSelect",
+                        "options": {
+                            "choices": [
+                                {"name": "Ready"},
+                                {"name": "Needs Knowledge"},
+                                {"name": "Awaiting Answers"},
+                                {"name": "Skipped"}
+                            ]
+                        }
+                    },
+                    {"name": "Pending Questions", "type": "multilineText"}
                 ]
             },
             {
@@ -321,7 +335,8 @@ class AirtableClient:
             {
                 "fields": {
                     "Keyword": kw,
-                    "Status": "Available"
+                    "Status": "Available",
+                    "Collection Status": "Needs Knowledge"
                 }
             }
             for kw in keywords
@@ -339,9 +354,15 @@ class AirtableClient:
         
         return created_count
     
-    def get_unused_keyword(self) -> Optional[str]:
-        """Get one unused keyword from pool"""
+    def get_available_keyword(self, campaign: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Get next available keyword with its knowledge and collection status.
+        
+        Returns:
+            Dict with 'keyword', 'knowledge', 'collection_status', and 'record_id' fields, or None
+        """
         url = f"{self.base_url}/{self.tables['keywords']}"
+        
         params = {
             "filterByFormula": "{Status} = 'Available'",
             "maxRecords": 1
@@ -351,9 +372,21 @@ class AirtableClient:
         response.raise_for_status()
         
         records = response.json().get("records", [])
+        
         if records:
-            return records[0]["fields"].get("Keyword")
+            fields = records[0]["fields"]
+            return {
+                "keyword": fields.get("Keyword"),
+                "knowledge": fields.get("Knowledge", ""),
+                "collection_status": fields.get("Collection Status", "Needs Knowledge"),
+                "record_id": records[0]["id"]
+            }
+        
         return None
+    
+    def update_keyword_knowledge(self, record_id: str, knowledge: str):
+        """Update the knowledge field for a specific keyword record."""
+        self.update_record(self.tables['keywords'], record_id, {"Knowledge": knowledge})
     
     def create_content(self, content: Dict[str, Any]) -> str:
         """Create content record with support for multiple images"""
@@ -469,3 +502,52 @@ class AirtableClient:
         today = date.today().isoformat()
         formula = f"AND({{Status}} = 'Published', IS_SAME({{Published At}}, '{today}', 'day'))"
         return self._count_by_formula(self.tables['content'], formula)
+    
+    def get_keyword_awaiting_answers(self) -> Optional[Dict[str, Any]]:
+        """
+        Get keyword that is awaiting user answers.
+        
+        Returns:
+            Dict with keyword data or None
+        """
+        url = f"{self.base_url}/{self.tables['keywords']}"
+        
+        params = {
+            "filterByFormula": "{Collection Status} = 'Awaiting Answers'",
+            "maxRecords": 1
+        }
+        
+        response = requests.get(url, params=params, headers=self.headers)
+        response.raise_for_status()
+        
+        records = response.json().get("records", [])
+        
+        if records:
+            fields = records[0]["fields"]
+            return {
+                "keyword": fields.get("Keyword"),
+                "knowledge": fields.get("Knowledge", ""),
+                "pending_questions": fields.get("Pending Questions", ""),
+                "record_id": records[0]["id"]
+            }
+        
+        return None
+    
+    def update_keyword_collection_status(
+        self, 
+        record_id: str, 
+        status: str,
+        pending_questions: Optional[str] = None,
+        knowledge: Optional[str] = None
+    ):
+        """Update collection status and related fields for a keyword"""
+        fields = {"Collection Status": status}
+        
+        if pending_questions is not None:
+            fields["Pending Questions"] = pending_questions
+        
+        if knowledge is not None:
+            fields["Knowledge"] = knowledge
+        
+        self.update_record(self.tables['keywords'], record_id, fields)
+

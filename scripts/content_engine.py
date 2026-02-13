@@ -41,29 +41,37 @@ class ContentEngine:
         self, 
         campaign: Dict[str, Any], 
         platforms: Optional[List[str]] = None,
-        num_images: int = 1
+        num_images: int = 1,
+        knowledge: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
-        Generate complete article with SEO metadata, social snippet, and images
+        Generate SEO-optimized content for a campaign.
         
         Args:
-            campaign: Campaign configuration
-            platforms: Target platforms (defaults to ["Website"])
-            num_images: Number of images to generate (default: 1)
+            campaign: Campaign settings
+            platforms: Target platforms for content
+            num_images: Number of images to generate
+            knowledge: User-provided domain expertise (optional)
             
         Returns:
-            Article data dict or None if generation fails
+            Content dict ready for Airtable, or None on error
         """
-        if platforms is None:
-            platforms = ["Website"]
+        platforms = platforms or ["Website"]
         
-        # Get unused keyword
-        keyword = self.airtable.get_unused_keyword()
-        if not keyword:
+        # Get available keyword
+        keyword_data = self.airtable.get_available_keyword(campaign) # Assuming self.airtable is the client
+        if not keyword_data:
+            print("No available keywords")
             return None
         
-        # Generate content using OpenAI
-        prompt = self._build_prompt(keyword, campaign["plan_name"])
+        keyword = keyword_data["keyword"]
+        existing_knowledge = keyword_data.get("knowledge", "")
+        
+        # Use provided knowledge or existing knowledge
+        final_knowledge = knowledge or existing_knowledge
+        
+        # Build prompt with knowledge if available
+        prompt = self._build_content_prompt(keyword, platforms, final_knowledge)
         
         try:
             content_data = self._call_openai(prompt)
@@ -147,6 +155,57 @@ class ContentEngine:
 
 只返回 JSON，不要其他内容。
         """.strip()
+    
+    def _build_content_prompt(
+        self, 
+        keyword: str, 
+        platforms: List[str],
+        knowledge: Optional[str] = None
+    ) -> str:
+        """Build AI prompt for content generation with optional knowledge injection"""
+        
+        platform_instructions = {
+            "Website": "完整的长文章（1500-2000字），HTML格式",
+            "X (Twitter)": "280字符以内的简短版本，保留核心hashtags",
+            "LinkedIn": "专业语气的中长文（500-800字）"
+        }
+        
+        platforms_str = ", ".join([platform_instructions.get(p, p) for p in platforms])
+        
+        prompt = f"""
+你是一位专业的 SEO 内容撰写专家。请基于以下关键词撰写一篇 SEO 优化的文章。
+
+关键词：{keyword}
+平台要求：{platforms_str}
+
+请使用 JSON 格式返回以下内容：
+{{
+  "title": "吸引人的标题",
+  "html_body": "HTML 格式的正文内容",
+  "slug": "url-friendly-slug",
+  "meta_description": "150字符以内的 SEO 描述",
+  "social_snippet": "适合社交媒体分享的简短介绍",
+  "keywords": ["相关", "关键词", "列表"]
+}}
+
+要求：
+- 标题包含关键词，吸引点击
+- 正文结构清晰，使用 <h2>, <p>, <ul> 等 HTML 标签
+- 融入实用信息和具体案例
+- meta_description 包含关键词和行动号召
+"""
+        
+        # Inject user knowledge if available
+        if knowledge and knowledge.strip():
+            prompt += f"""
+
+专家知识参考：
+{knowledge}
+
+请自然地融入上述专业见解和实践经验，提升内容的权威性和独特性。避免生硬堆砌，而是将这些知识点有机地整合到文章逻辑中。
+"""
+        
+        return prompt
     
     def _call_openai(self, prompt: str) -> Dict[str, Any]:
         """Call OpenAI API for content generation"""
@@ -372,3 +431,71 @@ Return JSON:
             result += " " + hashtags
         
         return result
+    
+    def generate_knowledge_questions(self, keyword: str) -> List[str]:
+        """
+        Generate 2-3 open-ended questions to gather user knowledge.
+        
+        Args:
+            keyword: The topic keyword
+            
+        Returns:
+            List of questions to ask user
+        """
+        prompt = f"""
+基于关键词 "{keyword}"，生成 3 个深入的开放式问题，用于收集领域专家的实践经验。
+
+要求：
+- 问题必须是开放式的（不是是/否问题）
+- 聚焦于实践经验、独特见解或实际挑战
+- 避免可以直接 Google 到答案的通用问题
+- 使用中文
+
+示例输出格式：
+1. [关于实际应用场景的问题]
+2. [关于独特优势或差异化的问题]
+3. [关于常见障碍或挑战的问题]
+
+只返回 3 个问题，每行一个，格式为 "1. 问题内容"
+"""
+        
+        try:
+            response = self._call_openai(prompt)
+            
+            # Parse questions from response
+           # Extract text content
+            if isinstance(response, dict) and "text" in response:
+                text = response["text"]
+            elif isinstance(response, str):
+                text = response
+            else:
+                text = str(response)
+            
+            # Split by line and extract numbered questions
+            lines = text.strip().split("\n")
+            questions = []
+            
+            for line in lines:
+                line = line.strip()
+                # Match lines like "1. Question text" or "1) Question text"
+                if re.match(r"^\d+[\.\)]\s+", line):
+                    # Remove number prefix
+                    question = re.sub(r"^\d+[\.\)]\s+", "", line)
+                    questions.append(question)
+            
+            # Return up to 3 questions
+            return questions[:3] if questions else [
+                f"{keyword} 在实际项目中解决了哪些核心问题？",
+                f"与传统方案相比，{keyword} 有什么独特优势？",
+                f"开发者在使用 {keyword} 时通常会遇到什么挑战？"
+            ]
+            
+        except Exception as e:
+            print(f"Failed to generate questions: {e}")
+            # Return fallback questions
+            return [
+                f"{keyword} 在实际项目中解决了哪些核心问题？",
+                f"与传统方案相比，{keyword} 有什么独特优势？",
+                f"开发者在使用 {keyword} 时通常会遇到什么挑战？"
+            ]
+

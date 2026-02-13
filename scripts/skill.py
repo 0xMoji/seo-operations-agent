@@ -31,14 +31,24 @@ class SEOAgent:
     
     def process_message(self, message: str) -> str:
         """
-        Process user message and execute corresponding action
+        Process user message with priority state detection.
         
-        Args:
-            message: User's natural language input
-            
-        Returns:
-            Agent's response message
+        Priority 1: Check if awaiting answers for knowledge collection
+        Priority 2: Normal intent parsing
         """
+        
+        # Priority 1: Check for keyword awaiting answers
+        awaiting_kw = self.airtable.get_keyword_awaiting_answers()
+        
+        if awaiting_kw:
+            # Check if user wants to skip
+            if any(skip_word in message.lower() for skip_word in ["跳过", "直接生成", "skip"]):
+                return self._skip_knowledge_collection(awaiting_kw)
+            
+            # Otherwise, treat message as answers
+            return self._process_knowledge_answers(awaiting_kw, message)
+        
+        # Priority 2: Normal intent parsing
         intent = self.parser.parse(message)
         
         if intent.type == "setup":
@@ -236,15 +246,43 @@ Please restart the skill to apply changes.
         return response
     
     def _handle_generate_content(self, params: Dict[str, Any]) -> str:
-        """Manually generate content immediately"""
-        count = params.get("count", 5)
+        """
+        Manually generate content with knowledge collection support.
         
+        Checks Collection Status and triggers knowledge collection if needed.
+        """
         # Get active campaign
         campaigns = self.airtable.get_active_campaigns()
         if not campaigns:
             return "⚠️ 请先创建运营计划。"
         
         campaign = campaigns[0]
+        
+        # Get next available keyword with collection status
+        keyword_data = self.airtable.get_available_keyword(campaign)
+        
+        if not keyword_data:
+            return "⚠️ 关键词库为空，请先添加关键词"
+        
+        keyword = keyword_data["keyword"]
+        record_id = keyword_data["record_id"]
+        collection_status = keyword_data.get("collection_status", "Needs Knowledge")
+        
+        # Check collection status and route accordingly
+        if collection_status == "Needs Knowledge":
+            # Start knowledge collection
+            return self._start_knowledge_collection(keyword, record_id)
+        
+        elif collection_status == "Awaiting Answers":
+            # Already asked, waiting for user
+            return f"""
+💬 我正在等待您回答关于 "{keyword}" 的问题
+
+请回答之前的问题，或说"跳过"直接生成内容。
+"""
+        
+        # Collection status is "Ready" or "Skipped" - proceed with generation
+        knowledge = keyword_data.get("knowledge", "")
         
         # Determine platforms from campaign
         platforms = []
@@ -350,3 +388,170 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    def _start_knowledge_collection(self, keyword: str, record_id: str) -> str:
+        """Generate questions and wait for user answers"""
+        
+        # Generate questions using content engine
+        questions = self.content_engine.generate_knowledge_questions(keyword)
+        
+        # Save questions to Airtable
+        import json
+        questions_json = json.dumps(questions, ensure_ascii=False)
+        self.airtable.update_keyword_collection_status(
+            record_id,
+            status="Awaiting Answers",
+            pending_questions=questions_json
+        )
+        
+        # Format message for user
+        questions_text = "\n".join(f"{i+1}. {q}" for i, q in enumerate(questions))
+        
+        return f"""
+📝 关键词: "{keyword}"
+
+为了让内容更专业，请分享您对这个主题的见解：
+
+{questions_text}
+
+💬 请回答上述问题（可以简短回答，或说"跳过"直接生成）
+"""
+    
+    def _process_knowledge_answers(
+        self, 
+        keyword_data: Dict[str, Any],
+        user_message: str
+    ) -> str:
+        """Parse user answers and save knowledge"""
+        
+        import json
+        
+        keyword = keyword_data["keyword"]
+        record_id = keyword_data["record_id"]
+        questions = json.loads(keyword_data["pending_questions"])
+        
+        # Use AI to structure the answers
+        parse_prompt = f"""
+用户回答了以下关于 "{keyword}" 的问题：
+
+问题列表：
+{chr(10).join(f'{i+1}. {q}' for i, q in enumerate(questions))}
+
+用户的回答：
+{user_message}
+
+请将回答结构化整理，格式如下：
+
+Q1: [第一个问题]
+A1: [用户的答案]
+
+Q2: [第二个问题]
+A2: [用户的答案]
+
+Q3: [第三个问题]
+A3: [用户的答案]
+
+如果用户没有明确回答某个问题，A 部分写"未提及"。
+只返回结构化的 Q&A，不要其他内容。
+"""
+        
+        try:
+            # Parse answers using OpenAI
+            response = self.content_engine._call_openai(parse_prompt)
+            
+            # Extract text
+            if isinstance(response, dict):
+                structured_knowledge = response.get("text", str(response))
+            else:
+                structured_knowledge = str(response)
+            
+            # Save knowledge and mark as ready
+            self.airtable.update_keyword_collection_status(
+                record_id,
+                status="Ready",
+                knowledge=structured_knowledge,
+                pending_questions=""
+            )
+            
+            # Auto-generate content after collecting knowledge
+            return self._auto_generate_after_knowledge(keyword, record_id, structured_knowledge)
+            
+        except Exception as e:
+            print(f"Error processing answers: {e}")
+            return f"⚠️ 处理回答时出错，请重新回答或说"跳过""
+    
+    def _skip_knowledge_collection(self, keyword_data: Dict[str, Any]) -> str:
+        """Skip knowledge collection and generate directly"""
+        
+        keyword = keyword_data["keyword"]
+        record_id = keyword_data["record_id"]
+        
+        # Mark as skipped
+        self.airtable.update_keyword_collection_status(
+            record_id,
+            status="Skipped",
+            pending_questions=""
+        )
+        
+        # Generate without knowledge
+        return f"⏭️ 已跳过知识收集，正在生成关于 \"{keyword}\" 的文章..."
+    
+    def _auto_generate_after_knowledge(
+        self,
+        keyword: str,
+        record_id: str,
+        knowledge: str
+    ) -> str:
+        """Automatically generate content after knowledge is collected"""
+        
+        # Get active campaign
+        campaigns = self.airtable.get_active_campaigns()
+        if not campaigns:
+            return "⚠️ 请先创建运营计划"
+        
+        campaign = campaigns[0]
+        
+        # Determine platforms
+        platforms = []
+        if campaign.get("website_webhook_url"):
+            platforms.append("Website")
+        
+        buffer_channels = campaign.get("buffer_channels", [])
+        if "twitter" in buffer_channels:
+            platforms.append("X (Twitter)")
+        if "linkedin" in buffer_channels:
+            platforms.append("LinkedIn")
+        
+        if not platforms:
+            platforms = ["Website"]
+        
+        # Generate article with knowledge
+        article = self.content_engine.generate(
+            campaign,
+            platforms=platforms,
+            num_images=2 if "Website" in platforms else 1,
+            knowledge=knowledge
+        )
+        
+        if not article:
+            return "⚠️ 内容生成失败"
+        
+        # Save to Airtable
+        content_id = self.airtable.create_content(article)
+        
+        # Build review link
+        airtable_link = self.scheduler.generate_airtable_link()
+        
+        return f"""
+✅ 已生成融合您专业见解的文章！
+
+📄 标题: "{article['title']}"
+
+💡 文章已自然融入您提到的专业知识点
+
+👉 请前往 Airtable 审核：
+{airtable_link}
+
+审核后将状态改为 "Approved" 即可发布。
+"""
+
